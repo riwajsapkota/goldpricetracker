@@ -2,7 +2,6 @@ import streamlit as st
 import yfinance as yf
 from datetime import datetime, timedelta
 import pandas as pd
-import numpy as np
 
 def get_gold_data(timeframe_days):
     """
@@ -36,20 +35,6 @@ def calculate_price_changes(df):
     month_change = ((current_price - month_start_price) / month_start_price) * 100
     
     return current_price, one_day_change, ten_day_change, month_change
-
-def calculate_volume_metrics(df):
-    """
-    Calculate volume analysis metrics
-    """
-    current_volume = df['Volume'][-1]
-    avg_volume = df['Volume'].mean()
-    volume_change = ((current_volume - df['Volume'][-2]) / df['Volume'][-2]) * 100
-    
-    # Calculate Volume Moving Averages
-    df['Volume_MA5'] = df['Volume'].rolling(window=5).mean()
-    df['Volume_MA20'] = df['Volume'].rolling(window=20).mean()
-    
-    return current_volume, avg_volume, volume_change, df
 
 def check_price_alerts(current_price, alert_prices):
     """
@@ -90,7 +75,6 @@ def main():
         
         # Calculate metrics
         current_price, one_day_change, ten_day_change, month_change = calculate_price_changes(df)
-        current_volume, avg_volume, volume_change, df = calculate_volume_metrics(df)
         
         # Price Alerts Section
         st.sidebar.header("Price Alerts")
@@ -151,45 +135,9 @@ def main():
                 delta=f"{month_change:.2f}%"
             )
         
-        # Volume Analysis Section
-        st.subheader("Volume Analysis")
-        vol_col1, vol_col2, vol_col3 = st.columns(3)
-        
-        with vol_col1:
-            st.metric(
-                "Current Volume",
-                f"{current_volume:,.0f}",
-                delta=f"{volume_change:.2f}%"
-            )
-        
-        with vol_col2:
-            st.metric(
-                "Average Volume",
-                f"{avg_volume:,.0f}"
-            )
-        
-        with vol_col3:
-            volume_ratio = (current_volume / avg_volume - 1) * 100
-            st.metric(
-                "Volume vs Average",
-                f"{volume_ratio:.2f}%",
-                delta=f"{volume_ratio:.2f}%"
-            )
-        
-        # Charts
-        chart_col1, chart_col2 = st.columns(2)
-        
-        with chart_col1:
-            st.subheader("Price Chart")
-            st.line_chart(df['Close'])
-        
-        with chart_col2:
-            st.subheader("Volume Chart")
-            st.bar_chart(df['Volume'])
-        
-        # Technical Analysis
-        st.subheader("Volume Moving Averages")
-        st.line_chart(df[['Volume', 'Volume_MA5', 'Volume_MA20']])
+        # Price Chart
+        st.subheader(f"Gold Price Chart ({selected_timeframe})")
+        st.line_chart(df['Close'])
         
         # Display raw data
         st.subheader("Historical Data")
