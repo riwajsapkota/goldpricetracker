@@ -24,8 +24,56 @@ def get_exchange_rates():
             'last_updated': 'Unable to fetch latest rates'
         }
 
-# [Previous functions remain the same: convert_price, get_gold_data, calculate_price_changes, check_price_alerts]
-[... previous code ...]
+def convert_price(price_usd, target_currency, exchange_rates):
+    """
+    Convert price from USD to target currency
+    """
+    if target_currency == 'USD':
+        return price_usd, '$'
+    elif target_currency == 'EUR':
+        return price_usd * exchange_rates['EUR'], '€'
+    else:  # NPR
+        return price_usd * exchange_rates['NPR'], 'रू'
+
+def get_gold_data(timeframe_days):
+    """
+    Fetch gold price data using GLD ETF as a proxy
+    """
+    gld = yf.Ticker("GLD")
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=timeframe_days)
+    df = gld.history(start=start_date, end=end_date)
+    return df
+
+def calculate_price_changes(df, exchange_rates, currency):
+    """
+    Calculate price changes over different time periods
+    """
+    current_price_usd = df['Close'][-1]
+    current_price, symbol = convert_price(current_price_usd, currency, exchange_rates)
+    
+    # Calculate changes
+    one_day_change = ((current_price_usd - df['Close'][-2]) / df['Close'][-2]) * 100
+    
+    ten_day_price = df['Close'][-11] if len(df) >= 11 else df['Close'][0]
+    ten_day_change = ((current_price_usd - ten_day_price) / ten_day_price) * 100
+    
+    month_start_price = df['Close'][0]
+    month_change = ((current_price_usd - month_start_price) / month_start_price) * 100
+    
+    return current_price, symbol, one_day_change, ten_day_change, month_change
+
+def check_price_alerts(current_price, alert_prices, currency, symbol):
+    """
+    Check if any price alerts have been triggered
+    """
+    triggered_alerts = []
+    for price in alert_prices:
+        if price['price'] >= current_price and price['type'] == 'below':
+            triggered_alerts.append(f"Price fell below {symbol}{price['price']:.2f}")
+        elif price['price'] <= current_price and price['type'] == 'above':
+            triggered_alerts.append(f"Price rose above {symbol}{price['price']:.2f}")
+    return triggered_alerts
 
 def main():
     # Set page config
@@ -71,6 +119,15 @@ def main():
         'US Dollar': 'USD',
         'Euro': 'EUR',
         'Nepali Rupee': 'NPR'
+    }
+    
+    # Timeframe options
+    timeframe_options = {
+        '1 Week': 7,
+        '1 Month': 30,
+        '3 Months': 90,
+        '6 Months': 180,
+        '1 Year': 365
     }
     
     col1, col2 = st.columns(2)
