@@ -6,34 +6,39 @@ import requests
 
 def get_exchange_rates():
     """
-    Get current exchange rates for USD to EUR and NPR
+    Get current exchange rates for EUR to USD and NPR
     """
     try:
-        response = requests.get('https://open.er-api.com/v6/latest/USD')
+        # Get rates with EUR as base currency
+        response = requests.get('https://open.er-api.com/v6/latest/EUR')
         rates = response.json()
         return {
-            'EUR': rates['rates']['EUR'],
+            'USD': rates['rates']['USD'],
             'NPR': rates['rates']['NPR'],
             'last_updated': rates['time_last_update_utc']
         }
     except:
         # Fallback rates if API fails
         return {
-            'EUR': 0.93,
-            'NPR': 132.0,
+            'USD': 1.08,  # Approximate EUR to USD
+            'NPR': 142.0,  # Approximate EUR to NPR
             'last_updated': 'Unable to fetch latest rates'
         }
 
 def convert_price(price_usd, target_currency, exchange_rates):
     """
-    Convert price from USD to target currency
+    Convert price from USD to target currency using EUR as intermediate
     """
+    # First convert USD to EUR
+    eur_rate = 1 / exchange_rates['USD']  # EUR/USD rate
+    price_eur = price_usd * eur_rate
+    
     if target_currency == 'USD':
         return price_usd, '$'
     elif target_currency == 'EUR':
-        return price_usd * exchange_rates['EUR'], '€'
+        return price_eur, '€'
     else:  # NPR
-        return price_usd * exchange_rates['NPR'], 'रू'
+        return price_eur * exchange_rates['NPR'], 'रू'
 
 def get_gold_data(timeframe_days):
     """
@@ -52,7 +57,7 @@ def calculate_price_changes(df, exchange_rates, currency):
     current_price_usd = df['Close'][-1]
     current_price, symbol = convert_price(current_price_usd, currency, exchange_rates)
     
-    # Calculate changes
+    # Calculate changes (percentage changes remain the same regardless of currency)
     one_day_change = ((current_price_usd - df['Close'][-2]) / df['Close'][-2]) * 100
     
     ten_day_price = df['Close'][-11] if len(df) >= 11 else df['Close'][0]
@@ -96,16 +101,16 @@ def main():
         
         with rate_col1:
             st.metric(
-                "USD to EUR",
-                f"€{exchange_rates['EUR']:.4f}",
-                help="1 USD = X EUR"
+                "EUR to USD",
+                f"${exchange_rates['USD']:.4f}",
+                help="1 EUR = X USD"
             )
         
         with rate_col2:
             st.metric(
-                "USD to NPR",
+                "EUR to NPR",
                 f"रू{exchange_rates['NPR']:.2f}",
-                help="1 USD = X NPR"
+                help="1 EUR = X NPR"
             )
             
         with rate_col3:
@@ -212,7 +217,12 @@ def main():
         # Convert historical prices for chart
         df_converted = df.copy()
         if currency_code != 'USD':
-            df_converted['Close'] = df['Close'] * exchange_rates[currency_code]
+            # Convert USD to EUR first, then to target currency if needed
+            eur_rate = 1 / exchange_rates['USD']
+            if currency_code == 'EUR':
+                df_converted['Close'] = df['Close'] * eur_rate
+            else:  # NPR
+                df_converted['Close'] = df['Close'] * eur_rate * exchange_rates['NPR']
         
         # Price Chart
         st.subheader(f"Gold Price Chart ({selected_timeframe})")
